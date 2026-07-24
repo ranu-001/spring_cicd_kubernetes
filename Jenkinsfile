@@ -6,6 +6,7 @@ pipeline {
         choice(
             name: 'ACTION',
             choices: [
+                'BUILD',
                 'Deploy_All',
                 'Deploy_DB',
                 'Deploy_Redis',
@@ -15,11 +16,17 @@ pipeline {
                 'Remove_Redis',
                 'Remove_DB'
             ],
-            description: 'Select Kubernetes Operation'
+            description: 'Select Pipeline Action'
         )
     }
 
+    tools {
+        maven 'maven'
+    }
+
     environment {
+        APP_NAME = "book-my-ticket"
+        DOCKER_IMAGE = "ranjitavaddebail/book-my-ticket"
         KUBECONFIG = "/var/lib/jenkins/.kube/config"
     }
 
@@ -27,13 +34,81 @@ pipeline {
 
         stage('Checkout Source Code') {
             steps {
-                echo "Checking out source code..."
                 checkout scm
             }
         }
 
-        stage('Create Namespace') {
+        stage('Prepare Build') {
             when {
+                expression { params.ACTION == 'BUILD' }
+            }
+            steps {
+                echo "Preparing Build..."
+                sh "mvn clean"
+            }
+        }
+
+        stage('Build JAR') {
+            when {
+                expression { params.ACTION == 'BUILD' }
+            }
+            steps {
+                sh "mvn clean package -DskipTests"
+            }
+        }
+
+        stage('Build Docker Image') {
+            when {
+                expression { params.ACTION == 'BUILD' }
+            }
+            steps {
+                sh """
+                docker build -t ${DOCKER_IMAGE}:latest .
+                """
+            }
+        }
+
+        stage('Docker Login & Push') {
+            when {
+                expression { params.ACTION == 'BUILD' }
+            }
+
+            steps {
+
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'docker-credentials',
+                        usernameVariable: 'DOCKER_USERNAME',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )
+                ]) {
+
+                    sh """
+                    echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USERNAME --password-stdin
+                    docker tag ${DOCKER_IMAGE}:latest ${DOCKER_IMAGE}:${BUILD_NUMBER}
+                    docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
+                    docker push ${DOCKER_IMAGE}:latest
+                    """
+                }
+            }
+        }
+
+        stage('Clean Docker') {
+            when {
+                expression { params.ACTION == 'BUILD' }
+            }
+            steps {
+                sh '''
+                docker image prune -af
+                docker system prune -af
+                '''
+            }
+        }
+
+        stage('Create Namespace') {
+
+            when {
+
                 anyOf {
                     expression { params.ACTION == 'Deploy_All' }
                     expression { params.ACTION == 'Deploy_DB' }
@@ -43,12 +118,17 @@ pipeline {
             }
 
             steps {
-                sh 'kubectl apply -f k8s/namespace/namespace.yaml'
+
+                sh '''
+                kubectl apply -f k8s/namespace/namespace.yml
+                '''
             }
         }
 
         stage('Deploy Database') {
+
             when {
+
                 anyOf {
                     expression { params.ACTION == 'Deploy_All' }
                     expression { params.ACTION == 'Deploy_DB' }
@@ -56,16 +136,19 @@ pipeline {
             }
 
             steps {
+
                 sh '''
-                kubectl apply -f k8s/database/secret.yaml
-                kubectl apply -f k8s/database/service.yaml
-                kubectl apply -f k8s/database/statefulset.yaml
+                kubectl apply -f k8s/database/secret.yml
+                kubectl apply -f k8s/database/service.yml
+                kubectl apply -f k8s/database/statefulset.yml
                 '''
             }
         }
 
         stage('Deploy Redis') {
+
             when {
+
                 anyOf {
                     expression { params.ACTION == 'Deploy_All' }
                     expression { params.ACTION == 'Deploy_Redis' }
@@ -73,15 +156,18 @@ pipeline {
             }
 
             steps {
+
                 sh '''
-                kubectl apply -f k8s/redis/deployment.yaml
-                kubectl apply -f k8s/redis/service.yaml
+                kubectl apply -f k8s/redis/deployment.yml
+                kubectl apply -f k8s/redis/service.yml
                 '''
             }
         }
 
         stage('Deploy Application') {
+
             when {
+
                 anyOf {
                     expression { params.ACTION == 'Deploy_All' }
                     expression { params.ACTION == 'Deploy_App' }
@@ -89,15 +175,18 @@ pipeline {
             }
 
             steps {
+
                 sh '''
-                kubectl apply -f k8s/application/deployment.yaml
-                kubectl apply -f k8s/application/service.yaml
+                kubectl apply -f k8s/application/deployment.yml
+                kubectl apply -f k8s/application/service.yml
                 '''
             }
         }
 
         stage('Verify Resources') {
+
             when {
+
                 anyOf {
                     expression { params.ACTION == 'Deploy_All' }
                     expression { params.ACTION == 'Deploy_DB' }
@@ -107,10 +196,11 @@ pipeline {
             }
 
             steps {
+
                 sh '''
                 kubectl get pods -n production
-                kubectl get deployments -n production
-                kubectl get statefulsets -n production
+                kubectl get deployment -n production
+                kubectl get statefulset -n production
                 kubectl get svc -n production
                 kubectl get pvc -n production
                 '''
@@ -118,7 +208,9 @@ pipeline {
         }
 
         stage('Remove Application') {
+
             when {
+
                 anyOf {
                     expression { params.ACTION == 'Remove_All' }
                     expression { params.ACTION == 'Remove_App' }
@@ -126,15 +218,18 @@ pipeline {
             }
 
             steps {
+
                 sh '''
-                kubectl delete -f k8s/application/service.yaml --ignore-not-found=true
-                kubectl delete -f k8s/application/deployment.yaml --ignore-not-found=true
+                kubectl delete -f k8s/application/service.yml --ignore-not-found=true
+                kubectl delete -f k8s/application/deployment.yml --ignore-not-found=true
                 '''
             }
         }
 
         stage('Remove Redis') {
+
             when {
+
                 anyOf {
                     expression { params.ACTION == 'Remove_All' }
                     expression { params.ACTION == 'Remove_Redis' }
@@ -142,15 +237,18 @@ pipeline {
             }
 
             steps {
+
                 sh '''
-                kubectl delete -f k8s/redis/service.yaml --ignore-not-found=true
-                kubectl delete -f k8s/redis/deployment.yaml --ignore-not-found=true
+                kubectl delete -f k8s/redis/service.yml --ignore-not-found=true
+                kubectl delete -f k8s/redis/deployment.yml --ignore-not-found=true
                 '''
             }
         }
 
         stage('Remove Database') {
+
             when {
+
                 anyOf {
                     expression { params.ACTION == 'Remove_All' }
                     expression { params.ACTION == 'Remove_DB' }
@@ -158,26 +256,29 @@ pipeline {
             }
 
             steps {
+
                 sh '''
-                kubectl delete -f k8s/database/statefulset.yaml --ignore-not-found=true
-                kubectl delete -f k8s/database/service.yaml --ignore-not-found=true
-                kubectl delete -f k8s/database/secret.yaml --ignore-not-found=true
+                kubectl delete -f k8s/database/statefulset.yml --ignore-not-found=true
+                kubectl delete -f k8s/database/service.yml --ignore-not-found=true
+                kubectl delete -f k8s/database/secret.yml --ignore-not-found=true
                 '''
             }
         }
+
     }
 
     post {
+
         success {
-            echo "Deployment completed successfully."
+            echo "Pipeline executed successfully."
         }
 
         failure {
-            echo "Deployment failed."
+            echo "Pipeline execution failed."
         }
 
         always {
-            echo "Pipeline execution completed."
+            echo "Pipeline completed."
         }
     }
 }
