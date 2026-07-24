@@ -44,7 +44,7 @@ pipeline {
             }
             steps {
                 echo "Preparing Build..."
-                sh "mvn clean"
+                sh 'mvn clean'
             }
         }
 
@@ -53,7 +53,7 @@ pipeline {
                 expression { params.ACTION == 'BUILD' }
             }
             steps {
-                sh "mvn clean package -DskipTests"
+                sh 'mvn clean package -DskipTests'
             }
         }
 
@@ -74,7 +74,6 @@ pipeline {
             }
 
             steps {
-
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'docker-credentials',
@@ -97,6 +96,7 @@ pipeline {
             when {
                 expression { params.ACTION == 'BUILD' }
             }
+
             steps {
                 sh '''
                 docker image prune -af
@@ -108,7 +108,6 @@ pipeline {
         stage('Create Namespace') {
 
             when {
-
                 anyOf {
                     expression { params.ACTION == 'Deploy_All' }
                     expression { params.ACTION == 'Deploy_DB' }
@@ -118,9 +117,8 @@ pipeline {
             }
 
             steps {
-
                 sh '''
-                kubectl apply -f k8s/namespace/namespace.yml
+                kubectl apply -f k8s/namespace/namespace.yaml
                 '''
             }
         }
@@ -128,7 +126,6 @@ pipeline {
         stage('Deploy Database') {
 
             when {
-
                 anyOf {
                     expression { params.ACTION == 'Deploy_All' }
                     expression { params.ACTION == 'Deploy_DB' }
@@ -136,20 +133,18 @@ pipeline {
             }
 
             steps {
-
-               sh '''
-kubectl apply -f k8s/database/pv.yaml
-kubectl apply -f k8s/database/secret.yaml
-kubectl apply -f k8s/database/service.yaml
-kubectl apply -f k8s/database/statefulset.yaml
-'''
+                sh '''
+                kubectl apply -f k8s/database/pv.yaml
+                kubectl apply -f k8s/database/secret.yaml
+                kubectl apply -f k8s/database/service.yaml
+                kubectl apply -f k8s/database/statefulset.yaml
+                '''
             }
         }
 
         stage('Deploy Redis') {
 
             when {
-
                 anyOf {
                     expression { params.ACTION == 'Deploy_All' }
                     expression { params.ACTION == 'Deploy_Redis' }
@@ -157,10 +152,9 @@ kubectl apply -f k8s/database/statefulset.yaml
             }
 
             steps {
-
                 sh '''
-                kubectl apply -f k8s/redis/deployment.yml
-                kubectl apply -f k8s/redis/service.yml
+                kubectl apply -f k8s/redis/deployment.yaml
+                kubectl apply -f k8s/redis/service.yaml
                 '''
             }
         }
@@ -168,7 +162,6 @@ kubectl apply -f k8s/database/statefulset.yaml
         stage('Deploy Application') {
 
             when {
-
                 anyOf {
                     expression { params.ACTION == 'Deploy_All' }
                     expression { params.ACTION == 'Deploy_App' }
@@ -176,10 +169,9 @@ kubectl apply -f k8s/database/statefulset.yaml
             }
 
             steps {
-
                 sh '''
-                kubectl apply -f k8s/application/deployment.yml
-                kubectl apply -f k8s/application/service.yml
+                kubectl apply -f k8s/application/deployment.yaml
+                kubectl apply -f k8s/application/service.yaml
                 '''
             }
         }
@@ -187,7 +179,6 @@ kubectl apply -f k8s/database/statefulset.yaml
         stage('Verify Resources') {
 
             when {
-
                 anyOf {
                     expression { params.ACTION == 'Deploy_All' }
                     expression { params.ACTION == 'Deploy_DB' }
@@ -197,7 +188,6 @@ kubectl apply -f k8s/database/statefulset.yaml
             }
 
             steps {
-
                 sh '''
                 kubectl get pods -n production
                 kubectl get deployment -n production
@@ -211,7 +201,6 @@ kubectl apply -f k8s/database/statefulset.yaml
         stage('Remove Application') {
 
             when {
-
                 anyOf {
                     expression { params.ACTION == 'Remove_All' }
                     expression { params.ACTION == 'Remove_App' }
@@ -219,10 +208,9 @@ kubectl apply -f k8s/database/statefulset.yaml
             }
 
             steps {
-
                 sh '''
-                kubectl delete -f k8s/application/service.yml --ignore-not-found=true
-                kubectl delete -f k8s/application/deployment.yml --ignore-not-found=true
+                kubectl delete -f k8s/application/service.yaml --ignore-not-found=true
+                kubectl delete -f k8s/application/deployment.yaml --ignore-not-found=true
                 '''
             }
         }
@@ -230,7 +218,6 @@ kubectl apply -f k8s/database/statefulset.yaml
         stage('Remove Redis') {
 
             when {
-
                 anyOf {
                     expression { params.ACTION == 'Remove_All' }
                     expression { params.ACTION == 'Remove_Redis' }
@@ -238,10 +225,9 @@ kubectl apply -f k8s/database/statefulset.yaml
             }
 
             steps {
-
                 sh '''
-                kubectl delete -f k8s/redis/service.yml --ignore-not-found=true
-                kubectl delete -f k8s/redis/deployment.yml --ignore-not-found=true
+                kubectl delete -f k8s/redis/service.yaml --ignore-not-found=true
+                kubectl delete -f k8s/redis/deployment.yaml --ignore-not-found=true
                 '''
             }
         }
@@ -249,7 +235,6 @@ kubectl apply -f k8s/database/statefulset.yaml
         stage('Remove Database') {
 
             when {
-
                 anyOf {
                     expression { params.ACTION == 'Remove_All' }
                     expression { params.ACTION == 'Remove_DB' }
@@ -257,15 +242,14 @@ kubectl apply -f k8s/database/statefulset.yaml
             }
 
             steps {
-
                 sh '''
-                kubectl delete -f k8s/database/statefulset.yml --ignore-not-found=true
-                kubectl delete -f k8s/database/service.yml --ignore-not-found=true
-                kubectl delete -f k8s/database/secret.yml --ignore-not-found=true
+                kubectl delete -f k8s/database/statefulset.yaml --ignore-not-found=true
+                kubectl delete -f k8s/database/service.yaml --ignore-not-found=true
+                kubectl delete -f k8s/database/secret.yaml --ignore-not-found=true
+                kubectl delete -f k8s/database/pv.yaml --ignore-not-found=true
                 '''
             }
         }
-
     }
 
     post {
