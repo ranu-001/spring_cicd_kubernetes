@@ -6,15 +6,21 @@ pipeline {
         choice(
             name: 'ACTION',
             choices: [
+                'Deploy_All',
                 'Deploy_DB',
                 'Deploy_Redis',
                 'Deploy_App',
+                'Remove_All',
                 'Remove_App',
                 'Remove_Redis',
                 'Remove_DB'
             ],
             description: 'Select Kubernetes Operation'
         )
+    }
+
+    environment {
+        KUBECONFIG = "/var/lib/jenkins/.kube/config"
     }
 
     stages {
@@ -27,9 +33,9 @@ pipeline {
         }
 
         stage('Create Namespace') {
-
             when {
                 anyOf {
+                    expression { params.ACTION == 'Deploy_All' }
                     expression { params.ACTION == 'Deploy_DB' }
                     expression { params.ACTION == 'Deploy_Redis' }
                     expression { params.ACTION == 'Deploy_App' }
@@ -37,124 +43,63 @@ pipeline {
             }
 
             steps {
-                echo "Creating Production Namespace..."
-
-                sh '''
-                    kubectl apply -f k8s/namespace/namespace.yaml
-                '''
+                sh 'kubectl apply -f k8s/namespace/namespace.yaml'
             }
         }
 
         stage('Deploy Database') {
-
             when {
-                expression { params.ACTION == 'Deploy_DB' }
+                anyOf {
+                    expression { params.ACTION == 'Deploy_All' }
+                    expression { params.ACTION == 'Deploy_DB' }
+                }
             }
 
             steps {
-
-                echo "Deploying MySQL Database..."
-
                 sh '''
-                    kubectl apply -f k8s/database/secret.yaml
-                    kubectl apply -f k8s/database/pvc.yaml
-                    kubectl apply -f k8s/database/service.yaml
-                    kubectl apply -f k8s/database/statefulset.yaml
+                kubectl apply -f k8s/database/secret.yaml
+                kubectl apply -f k8s/database/service.yaml
+                kubectl apply -f k8s/database/statefulset.yaml
                 '''
             }
         }
 
         stage('Deploy Redis') {
-
             when {
-                expression { params.ACTION == 'Deploy_Redis' }
+                anyOf {
+                    expression { params.ACTION == 'Deploy_All' }
+                    expression { params.ACTION == 'Deploy_Redis' }
+                }
             }
 
             steps {
-
-                echo "Deploying Redis..."
-
                 sh '''
-                    kubectl apply -f k8s/redis/deployment.yaml
-                    kubectl apply -f k8s/redis/service.yaml
+                kubectl apply -f k8s/redis/deployment.yaml
+                kubectl apply -f k8s/redis/service.yaml
                 '''
             }
         }
 
         stage('Deploy Application') {
-
             when {
-                expression { params.ACTION == 'Deploy_App' }
+                anyOf {
+                    expression { params.ACTION == 'Deploy_All' }
+                    expression { params.ACTION == 'Deploy_App' }
+                }
             }
 
             steps {
-
-                echo "Deploying Book My Ticket..."
-
                 sh '''
-                    kubectl apply -f k8s/application/deployment.yaml
-                    kubectl apply -f k8s/application/service.yaml
-                '''
-            }
-        }
-
-        stage('Remove Application') {
-
-            when {
-                expression { params.ACTION == 'Remove_App' }
-            }
-
-            steps {
-
-                echo "Removing Book My Ticket..."
-
-                sh '''
-                    kubectl delete -f k8s/application/service.yaml --ignore-not-found=true
-                    kubectl delete -f k8s/application/deployment.yaml --ignore-not-found=true
-                '''
-            }
-        }
-
-        stage('Remove Redis') {
-
-            when {
-                expression { params.ACTION == 'Remove_Redis' }
-            }
-
-            steps {
-
-                echo "Removing Redis..."
-
-                sh '''
-                    kubectl delete -f k8s/redis/service.yaml --ignore-not-found=true
-                    kubectl delete -f k8s/redis/deployment.yaml --ignore-not-found=true
-                '''
-            }
-        }
-
-        stage('Remove Database') {
-
-            when {
-                expression { params.ACTION == 'Remove_DB' }
-            }
-
-            steps {
-
-                echo "Removing MySQL Database..."
-
-                sh '''
-                    kubectl delete -f k8s/database/statefulset.yaml --ignore-not-found=true
-                    kubectl delete -f k8s/database/service.yaml --ignore-not-found=true
-                    kubectl delete -f k8s/database/pvc.yaml --ignore-not-found=true
-                    kubectl delete -f k8s/database/secret.yaml --ignore-not-found=true
+                kubectl apply -f k8s/application/deployment.yaml
+                kubectl apply -f k8s/application/service.yaml
                 '''
             }
         }
 
         stage('Verify Resources') {
-
             when {
                 anyOf {
+                    expression { params.ACTION == 'Deploy_All' }
                     expression { params.ACTION == 'Deploy_DB' }
                     expression { params.ACTION == 'Deploy_Redis' }
                     expression { params.ACTION == 'Deploy_App' }
@@ -162,33 +107,77 @@ pipeline {
             }
 
             steps {
-
-                echo "Verifying Kubernetes Resources..."
-
                 sh '''
-                    kubectl get namespaces
-                    kubectl get pods -n production
-                    kubectl get deployments -n production
-                    kubectl get statefulsets -n production
-                    kubectl get services -n production
-                    kubectl get pvc -n production
+                kubectl get pods -n production
+                kubectl get deployments -n production
+                kubectl get statefulsets -n production
+                kubectl get svc -n production
+                kubectl get pvc -n production
+                '''
+            }
+        }
+
+        stage('Remove Application') {
+            when {
+                anyOf {
+                    expression { params.ACTION == 'Remove_All' }
+                    expression { params.ACTION == 'Remove_App' }
+                }
+            }
+
+            steps {
+                sh '''
+                kubectl delete -f k8s/application/service.yaml --ignore-not-found=true
+                kubectl delete -f k8s/application/deployment.yaml --ignore-not-found=true
+                '''
+            }
+        }
+
+        stage('Remove Redis') {
+            when {
+                anyOf {
+                    expression { params.ACTION == 'Remove_All' }
+                    expression { params.ACTION == 'Remove_Redis' }
+                }
+            }
+
+            steps {
+                sh '''
+                kubectl delete -f k8s/redis/service.yaml --ignore-not-found=true
+                kubectl delete -f k8s/redis/deployment.yaml --ignore-not-found=true
+                '''
+            }
+        }
+
+        stage('Remove Database') {
+            when {
+                anyOf {
+                    expression { params.ACTION == 'Remove_All' }
+                    expression { params.ACTION == 'Remove_DB' }
+                }
+            }
+
+            steps {
+                sh '''
+                kubectl delete -f k8s/database/statefulset.yaml --ignore-not-found=true
+                kubectl delete -f k8s/database/service.yaml --ignore-not-found=true
+                kubectl delete -f k8s/database/secret.yaml --ignore-not-found=true
                 '''
             }
         }
     }
 
     post {
-
         success {
-            echo "Deployment Pipeline Executed Successfully."
+            echo "Deployment completed successfully."
         }
 
         failure {
-            echo "Deployment Pipeline Failed."
+            echo "Deployment failed."
         }
 
         always {
-            echo "Pipeline Execution Completed."
+            echo "Pipeline execution completed."
         }
     }
 }
