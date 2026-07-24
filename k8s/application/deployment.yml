@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: book-my-ticket
+  namespace: production
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: book-my-ticket
+
+  template:
+    metadata:
+      labels:
+        app: book-my-ticket
+
+    spec:
+      containers:
+      - name: book-my-ticket
+        image: ranjitavaddebail/book-my-ticket:latest
+
+        imagePullPolicy: Always
+
+        ports:
+        - containerPort: 8085
+
+        env:
+
+        - name: SPRING_DATASOURCE_URL
+          value: jdbc:mysql://mysql:3306/bookmyticket?createDatabaseIfNotExist=true
+
+        - name: SPRING_DATASOURCE_USERNAME
+          value: root
+
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_ROOT_PASSWORD
+
+        - name: SPRING_REDIS_URL
+          value: redis://redis:6379
+
+        - name: APP_PASSWORD
+          value: "YOUR_APP_PASSWORD"
+
+        - name: CLOUDINARY_URL
+          value: "YOUR_CLOUDINARY_URL"

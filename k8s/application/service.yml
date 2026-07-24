@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: book-my-ticket-service
+  namespace: production
+
+spec:
+  selector:
+    app: book-my-ticket
+
+  ports:
+    - protocol: TCP
+      port: 8085
+      targetPort: 8085
+      nodePort: 30085
+
+  type: NodePort
