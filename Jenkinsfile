@@ -137,11 +137,12 @@ pipeline {
 
             steps {
 
-                sh '''
-                kubectl apply -f k8s/database/secret.yml
-                kubectl apply -f k8s/database/service.yml
-                kubectl apply -f k8s/database/statefulset.yml
-                '''
+               sh '''
+kubectl apply -f k8s/database/pv.yaml
+kubectl apply -f k8s/database/secret.yaml
+kubectl apply -f k8s/database/service.yaml
+kubectl apply -f k8s/database/statefulset.yaml
+'''
             }
         }
 
