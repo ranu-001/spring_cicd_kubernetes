@@ -45,7 +45,7 @@ spec:
           value: redis://redis:6379
 
         - name: APP_PASSWORD
-          value: "YOUR_APP_PASSWORD"
+          value: "kzvl fygb tywn rtvf"
 
         - name: CLOUDINARY_URL
-          value: "YOUR_CLOUDINARY_URL"
+          value: "cloudinary://316134237756421:Napgao6CS4wJSlND14oO3hvkTAY@dok9rgmy1"
