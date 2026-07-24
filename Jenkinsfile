@@ -118,7 +118,7 @@ pipeline {
 
             steps {
                 sh '''
-                kubectl apply -f k8s/namespace/namespace.yaml
+                kubectl apply -f k8s/namespace/namespace.yml
                 '''
             }
         }
@@ -153,8 +153,8 @@ pipeline {
 
             steps {
                 sh '''
-                kubectl apply -f k8s/redis/deployment.yaml
-                kubectl apply -f k8s/redis/service.yaml
+                kubectl apply -f k8s/redis/deployment.yml
+                kubectl apply -f k8s/redis/service.yml
                 '''
             }
         }
